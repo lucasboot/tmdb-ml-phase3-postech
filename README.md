@@ -1,15 +1,15 @@
-# TMDB Dashboard - Flask + Celery + MySQL
+# TMDB Horror Movies Predictor - Flask + Celery + MySQL
 
-Sistema de dashboard alimentado por machine learning com dados do TMDB coletados a cada 2 minutos.
+Sistema de predição de popularidade e notas para filmes de terror/horror usando machine learning.
 
 ## Stack
 
 - **Flask** - API REST + Dashboard web com Jinja2 e Chart.js
-- **Celery + Celery Beat** - Agendamento automático de tarefas (coleta TMDB a cada 2 min)
+- **Celery + Celery Beat** - Agendamento automático de coleta diária
 - **MySQL** - Banco de dados relacional (via Docker)
 - **Redis** - Broker/backend do Celery
 - **SQLAlchemy** - ORM para persistência
-- **Scikit-learn** - Pipeline de machine learning com regressão linear para prever popularidade e notas
+- **Scikit-learn** - Pipeline de machine learning com regressão linear para prever popularidade e notas de filmes de terror/horror
 
 ## Estrutura
 
@@ -81,6 +81,8 @@ Abra o navegador em: **http://localhost:8000/**
 
 O dashboard atualiza automaticamente a cada 30 segundos via polling.
 
+⚠️ **Nota:** O Celery Beat executará a primeira coleta automática em até 24h. O dashboard só exibirá dados após a coleta ser concluída (~1-2 horas de execução).
+
 ## Endpoints da API
 
 - `GET /health` - Health check
@@ -90,14 +92,19 @@ O dashboard atualiza automaticamente a cada 30 segundos via polling.
 
 ## Fluxo de Funcionamento
 
-1. **Coleta (a cada 2 min):**
-   - Celery Beat agenda `task_ingest`
-   - Busca 2 páginas de filmes populares do TMDB (40 filmes)
+1. **Coleta de Filmes de Terror/Horror (1x por dia):**
+   - Celery Beat agenda `task_ingest` diariamente
+   - Coleta filmes de terror/horror de 2010 até o ano atual
+   - Usa endpoint `/discover/movie` do TMDB com filtro de gênero (Horror = ID 27)
+   - Filtra filmes com pelo menos 10 votos
+   - 20 páginas por ano (~300-400 filmes/ano)
+   - Total estimado: ~5.000 filmes de terror
    - Armazena em MySQL (tabelas `movies` e `movie_snapshots`)
+   - Faz upsert: atualiza filmes existentes e adiciona novos
 
-2. **Treinamento ML (a cada 15 min):**
-   - Celery Beat agenda `task_train`
-   - Extrai features dos filmes coletados
+2. **Treinamento ML (a cada hora):**
+   - Celery Beat agenda `task_train` a cada 1 hora
+   - Extrai features dos filmes de terror coletados
    - Treina 2 modelos de Regressão Linear (popularidade e nota)
    - Calcula métricas (MAE, R²)
    - Gera predições para todos os filmes
@@ -112,45 +119,96 @@ O dashboard atualiza automaticamente a cada 30 segundos via polling.
      - Gráfico de linha: Nota média prevista vs real
      - Tabela: Detalhes das predições
 
+## Coleta Automática de Dados
+
+O sistema coleta automaticamente **filmes de terror/horror de 2010 em diante** diariamente via Celery Beat.
+
+### Características da Coleta:
+- **Gênero:** Horror (TMDB Genre ID: 27)
+- **Período:** 2010 até ano atual (~16 anos)
+- **Frequência:** 1x por dia (24 horas)
+- **Volume:** ~5.000 filmes de terror únicos + atualizações
+- **Filtros:** Filmes com pelo menos 10 votos
+- **Estratégia:** Percorre ano por ano (2010 até atual)
+- **Páginas por ano:** 20 páginas (~300-400 filmes/ano)
+- **Upsert automático:** Atualiza existentes, insere novos
+- **Tempo de execução:** ~1-2 horas por coleta completa
+
+### Dados Coletados:
+- Metadados: título, título original, overview, idioma
+- Métricas: popularidade, vote_count, vote_average
+- Detalhes: runtime, gêneros, release_date
+- Imagens: poster_path, backdrop_path
+- IDs: tmdb_id, imdb_id
+
+### Por que Filmes de Terror?
+
+Foco em um nicho específico permite:
+- ✅ Modelos mais precisos e especializados
+- ✅ Coleta mais rápida e eficiente
+- ✅ Melhor compreensão de padrões do gênero
+- ✅ Predições mais relevantes para produtores/distribuidores
+
+### Customização
+
+Para ajustar a coleta, edite `web/app/tmdb.py` na função `collect_movies_by_year_range`:
+
+```python
+def collect_movies_by_year_range(
+    start_year=2010,
+    end_year=None,
+    max_pages_per_year=20,
+    sleep_per_call=0.3
+):
+    ...
+    data = tmdb_get("/discover/movie", {
+        "primary_release_year": year,
+        "with_genres": 27,  # 27 = Horror
+        ...
+    })
+```
+
 ## Machine Learning
 
 > 📖 **Para documentação completa sobre ML, casos de uso, interpretação de métricas e roadmap:** Veja [ML_INSIGHTS.md](ML_INSIGHTS.md)
 
 ### O que o modelo prevê?
 
-Os modelos realizam **predição baseada em características** (não é previsão temporal). Eles aprendem a relação entre as features de um filme e sua popularidade/nota atual.
+Os modelos realizam **predição baseada em características** de filmes de terror/horror. Eles aprendem a relação entre as features de um filme de terror e sua popularidade/nota.
 
 **Tipo de predição:** Regressão baseada em features do filme  
-**Objetivo:** Estimar popularidade e nota média que um filme DEVERIA ter baseado em suas características  
-**Período:** Valores atuais (não é série temporal)  
-**NÃO prevê:** Evolução futura (série temporal) - isso está no roadmap
+**Objetivo:** Estimar popularidade e nota média que um filme de terror DEVERIA ter baseado em suas características  
+**Nicho:** Especializado em filmes de terror/horror (2010+)  
+**Período:** Valores atuais (não é série temporal)
 
 ### Como funciona?
 
-1. O modelo é treinado com os filmes já coletados do TMDB
-2. Aprende padrões: "Filmes de ação no verão tendem a ter popularidade X"
+1. O modelo é treinado com ~5.000 filmes de terror coletados do TMDB (2010-atual)
+2. Aprende padrões: "Filmes de terror lançados em outubro tendem a ter popularidade X"
 3. Para cada filme, compara o valor **previsto** (baseado nas features) vs **real** (do TMDB)
 4. Útil para identificar:
-   - Filmes sub-avaliados (previsão > realidade)
-   - Filmes super-avaliados (previsão < realidade)
-   - Padrões de sucesso por gênero, época, etc.
+   - Filmes de terror sub-avaliados (previsão > realidade)
+   - Filmes de terror super-avaliados (previsão < realidade)
+   - Padrões de sucesso para o gênero horror
+   - Melhores épocas de lançamento para terror
 
 ### Features Utilizadas
 
+Features extraídas para treinar os modelos especializados em terror:
+
 - **runtime** - Duração do filme (minutos)
 - **vote_count** - Quantidade de votos recebidos
-- **release_year** - Ano de lançamento
-- **release_month** - Mês de lançamento (1-12)
+- **release_year** - Ano de lançamento (2010+)
+- **release_month** - Mês de lançamento (outubro é importante para terror!)
 - **is_summer** - Lançado no verão [Jun-Ago] (0 ou 1)
-- **is_holiday** - Lançado em temporada de festas [Nov-Dez] (0 ou 1)
-- **genre_action** - É filme de ação (0 ou 1)
-- **genre_adventure** - É filme de aventura (0 ou 1)
-- **genre_comedy** - É comédia (0 ou 1)
-- **genre_drama** - É drama (0 ou 1)
-- **genre_scifi** - É ficção científica (0 ou 1)
-- **genre_thriller** - É thriller (0 ou 1)
+- **is_holiday** - Lançado em Halloween/Natal [Out-Dez] (0 ou 1)
+- **genre_thriller** - Também é thriller (terror + thriller é comum)
+- **genre_drama** - Também é drama
+- **genre_scifi** - Também é sci-fi (terror sci-fi)
 - **genre_count** - Total de gêneros do filme
 - **is_english** - Filme em inglês (0 ou 1)
+
+**Observação:** Todos os filmes já são de terror/horror por definição, então features como `genre_horror` são sempre 1.
 
 ### Modelos
 

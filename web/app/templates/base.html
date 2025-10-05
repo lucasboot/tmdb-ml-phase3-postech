@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TMDB Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@latest/css/pico.min.css">
+  <style>
+    body { padding: 1rem; }
+    canvas { max-height: 420px; }
+  </style>
+</head>
+<body>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <script src="/static/main.js"></script>
+</body>
+</html>
+

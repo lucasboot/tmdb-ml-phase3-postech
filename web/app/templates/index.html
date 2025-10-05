@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>TMDB – Top 10 (atualiza a cada 2 min)</h2>
+<p><small>Polling automático a cada {{ poll_ms/1000|int }}s</small></p>
+<article>
+  <canvas id="chartTop"></canvas>
+</article>
+<section>
+  <table>
+    <thead>
+      <tr><th>Título</th><th>Popularity</th><th>Votes</th><th>Rating</th></tr>
+    </thead>
+    <tbody id="tblTop"></tbody>
+  </table>
+</section>
+{% endblock %}
+

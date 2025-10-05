@@ -1,16 +1,56 @@
 {% extends 'base.html' %}
 {% block content %}
-<h2>TMDB – Top 10 (atualiza a cada 2 min)</h2>
+<h1>TMDB Dashboard - Machine Learning</h1>
 <p><small>Polling automático a cada {{ poll_ms/1000|int }}s</small></p>
-<article>
-  <canvas id="chartTop"></canvas>
-</article>
+
 <section>
+  <h2>Top 10 Filmes Mais Populares</h2>
+  <article>
+    <canvas id="chartTop"></canvas>
+  </article>
   <table>
     <thead>
       <tr><th>Título</th><th>Popularity</th><th>Votes</th><th>Rating</th></tr>
     </thead>
     <tbody id="tblTop"></tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Predições de Machine Learning (Regressão Linear)</h2>
+  <p><small>Os modelos preveem popularidade e nota com base nas características dos filmes (gênero, duração, data de lançamento, etc). Compara o valor previsto vs real para identificar padrões.</small></p>
+  <div class="grid">
+    <article>
+      <h3>Popularidade Prevista vs Real</h3>
+      <canvas id="chartPopularity"></canvas>
+    </article>
+    <article>
+      <h3>Nota Média Prevista vs Real</h3>
+      <canvas id="chartVoteAverage"></canvas>
+    </article>
+  </div>
+  <details>
+    <summary>Ver métricas do modelo</summary>
+    <table id="tblMetrics">
+      <tbody></tbody>
+    </table>
+  </details>
+</section>
+
+<section>
+  <h2>Top 10 Predições</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Título</th>
+        <th>Lançamento</th>
+        <th>Pop. Prevista</th>
+        <th>Pop. Real</th>
+        <th>Nota Prevista</th>
+        <th>Nota Real</th>
+      </tr>
+    </thead>
+    <tbody id="tblPredictions"></tbody>
   </table>
 </section>
 {% endblock %}

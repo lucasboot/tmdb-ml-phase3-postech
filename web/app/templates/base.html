@@ -8,7 +8,15 @@
   <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@latest/css/pico.min.css">
   <style>
     body { padding: 1rem; }
-    canvas { max-height: 420px; }
+    canvas { max-height: 380px; min-height: 280px; }
+    h1 { margin-bottom: 0.5rem; }
+    h2 { margin-top: 2rem; font-size: 1.5rem; }
+    h3 { font-size: 1.2rem; }
+    section { margin-bottom: 2rem; }
+    .grid { grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 768px) {
+      .grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>

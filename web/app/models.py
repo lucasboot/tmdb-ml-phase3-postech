@@ -39,6 +39,10 @@ class ModelPrediction(db.Model):
     pred_ts = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     tmdb_id = db.Column(BIGINT(unsigned=True), db.ForeignKey("movies.tmdb_id"))
     model_name = db.Column(db.String(64))
-    p_popular = db.Column(db.Float)
-    topk_similar = db.Column(db.Text)
+    predicted_popularity = db.Column(db.Float)
+    predicted_vote_average = db.Column(db.Float)
+    actual_popularity = db.Column(db.Float)
+    actual_vote_average = db.Column(db.Float)
+    mae_popularity = db.Column(db.Float)
+    mae_vote_average = db.Column(db.Float)
 

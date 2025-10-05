@@ -13,7 +13,7 @@ celery = Celery(__name__, broker=os.getenv("REDIS_URL"), backend=os.getenv("REDI
 celery.conf.beat_schedule = {
     "fetch-tmdb-every-2-min": {
         "task": "app.celery_app.task_ingest",
-        "schedule": 15.0,
+        "schedule": 120.0,
     },
     "train-model-every-15-min": {
         "task": "app.celery_app.task_train",

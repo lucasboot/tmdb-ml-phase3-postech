@@ -81,6 +81,12 @@ Abra o navegador em: **http://localhost:8000/**
 
 O dashboard atualiza automaticamente a cada 30 segundos via polling.
 
+## Deploy na Vercel
+
+Deseja publicar o dashboard como Function na Vercel com versionamento
+automático por commit? Siga o passo a passo em
+[docs/DEPLOY_VERCEL.md](docs/DEPLOY_VERCEL.md).
+
 ## Endpoints da API
 
 - `GET /health` - Health check

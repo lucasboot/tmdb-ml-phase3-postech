@@ -45,3 +45,54 @@ class ModelPrediction(db.Model):
     mae_popularity = db.Column(db.Float)
     mae_vote_average = db.Column(db.Float)
 
+
+class HorrorRegression(db.Model):
+    __tablename__ = "horror_regression"
+    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    analysis_ts = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    feature_name = db.Column(db.String(128))
+    feature_importance = db.Column(db.Float)
+    mae = db.Column(db.Float)
+    r2_score = db.Column(db.Float)
+
+
+class HorrorRegressionPrediction(db.Model):
+    __tablename__ = "horror_regression_predictions"
+    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    analysis_ts = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    tmdb_id = db.Column(db.BigInteger, db.ForeignKey("movies.tmdb_id"))
+    actual_popularity = db.Column(db.Float)
+    predicted_popularity = db.Column(db.Float)
+
+
+class HorrorClassification(db.Model):
+    __tablename__ = "horror_classification"
+    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    analysis_ts = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    confusion_matrix = db.Column(db.Text)
+    roc_curve = db.Column(db.Text)
+    auc_score = db.Column(db.Float)
+    accuracy = db.Column(db.Float)
+
+
+class HorrorClustering(db.Model):
+    __tablename__ = "horror_clustering"
+    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    analysis_ts = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    tmdb_id = db.Column(db.BigInteger, db.ForeignKey("movies.tmdb_id"))
+    cluster_id = db.Column(db.Integer)
+    pca_x = db.Column(db.Float)
+    pca_y = db.Column(db.Float)
+
+
+class HorrorClusterProfile(db.Model):
+    __tablename__ = "horror_cluster_profiles"
+    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    analysis_ts = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    cluster_id = db.Column(db.Integer)
+    avg_popularity = db.Column(db.Float)
+    avg_vote_average = db.Column(db.Float)
+    avg_runtime = db.Column(db.Float)
+    avg_vote_count = db.Column(db.Float)
+    movie_count = db.Column(db.Integer)
+

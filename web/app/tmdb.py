@@ -72,7 +72,7 @@ def collect_popular_pages(pages=2, sleep_per_call=0.05):
     return {"snapshots": created, "ts": snapshot_ts.isoformat()}
 
 
-def collect_movies_by_year_range(start_year=2024, end_year=None, max_pages_per_year=20, sleep_per_call=0.3):
+def collect_movies_by_year_range(start_year=2025, end_year=None, max_pages_per_year=20, sleep_per_call=0.3):
     if end_year is None:
         end_year = datetime.now().year
     

@@ -8,7 +8,14 @@ from .tmdb import collect_movies_by_year_range
 from .ml import train_and_store
 from flask import Flask
 
-celery = Celery(__name__, broker=os.getenv("REDIS_URL"), backend=os.getenv("REDIS_URL"))
+redis_url = os.getenv("REDIS_URL")
+celery = Celery(__name__, broker=redis_url, backend=redis_url)
+
+celery.conf.update(
+    broker_connection_retry_on_startup=True,
+    broker_use_ssl={'ssl_cert_reqs': 'none'} if redis_url and redis_url.startswith('rediss://') else None,
+    redis_backend_use_ssl={'ssl_cert_reqs': 'none'} if redis_url and redis_url.startswith('rediss://') else None,
+)
 
 celery.conf.beat_schedule = {
     "fetch-tmdb-daily": {

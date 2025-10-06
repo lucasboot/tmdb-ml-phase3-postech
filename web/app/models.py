@@ -1,11 +1,10 @@
 from .db import db
-from sqlalchemy.dialects.mysql import BIGINT
 from datetime import datetime
 
 
 class Movie(db.Model):
     __tablename__ = "movies"
-    tmdb_id = db.Column(BIGINT(unsigned=True), primary_key=True)
+    tmdb_id = db.Column(db.BigInteger, primary_key=True)
     imdb_id = db.Column(db.String(32))
     title = db.Column(db.String(512), nullable=False)
     original_title = db.Column(db.String(512))
@@ -26,7 +25,7 @@ class Movie(db.Model):
 class Snapshot(db.Model):
     __tablename__ = "movie_snapshots"
     id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
-    tmdb_id = db.Column(BIGINT(unsigned=True), db.ForeignKey("movies.tmdb_id"))
+    tmdb_id = db.Column(db.BigInteger, db.ForeignKey("movies.tmdb_id"))
     snapshot_ts = db.Column(db.DateTime, nullable=False)
     popularity = db.Column(db.Float)
     vote_count = db.Column(db.Integer)
@@ -37,7 +36,7 @@ class ModelPrediction(db.Model):
     __tablename__ = "model_predictions"
     id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
     pred_ts = db.Column(db.DateTime, default=datetime.utcnow, index=True)
-    tmdb_id = db.Column(BIGINT(unsigned=True), db.ForeignKey("movies.tmdb_id"))
+    tmdb_id = db.Column(db.BigInteger, db.ForeignKey("movies.tmdb_id"))
     model_name = db.Column(db.String(64))
     predicted_popularity = db.Column(db.Float)
     predicted_vote_average = db.Column(db.Float)

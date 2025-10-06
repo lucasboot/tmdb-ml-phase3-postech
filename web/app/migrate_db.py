@@ -15,3 +15,4 @@ if __name__ == "__main__":
         
         print("Migration completed successfully!")
         print("New columns: predicted_popularity, predicted_vote_average, actual_popularity, actual_vote_average, mae_popularity, mae_vote_average")
+

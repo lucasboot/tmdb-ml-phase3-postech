@@ -1,32 +1,10 @@
 version: "3.9"
 services:
-  mysql:
-    image: mysql:8.0
-    environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-    command: ["--default-authentication-plugin=mysql_native_password"]
-    volumes:
-      - mysql_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7
-
   init-db:
     build:
       context: .
       dockerfile: ./web/Dockerfile
     env_file: .env
-    depends_on:
-      mysql:
-        condition: service_healthy
     command: ["python", "-m", "app.init_db_script"]
     restart: "no"
 
@@ -36,10 +14,6 @@ services:
       dockerfile: ./web/Dockerfile
     env_file: .env
     depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_started
       init-db:
         condition: service_completed_successfully
     ports:
@@ -52,10 +26,6 @@ services:
       dockerfile: ./web/Dockerfile
     env_file: .env
     depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_started
       init-db:
         condition: service_completed_successfully
     command: ["celery", "-A", "app.celery_app.celery", "worker", "--loglevel=INFO"]
@@ -69,7 +39,4 @@ services:
       worker:
         condition: service_started
     command: ["celery", "-A", "app.celery_app.celery", "beat", "--loglevel=INFO"]
-
-volumes:
-  mysql_data:
 

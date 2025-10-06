@@ -167,7 +167,8 @@ function renderROCChart(classification){
           backgroundColor: 'rgba(54, 162, 235, 0.2)',
           fill: true,
           pointRadius: 0,
-          borderWidth: 2
+          borderWidth: 2,
+          tension: 0.1
         },
         {
           label: 'Random Classifier',
@@ -175,7 +176,8 @@ function renderROCChart(classification){
           borderColor: 'rgba(255, 99, 132, 1)',
           borderDash: [5, 5],
           pointRadius: 0,
-          fill: false
+          fill: false,
+          borderWidth: 2
         }
       ]
     },
@@ -184,14 +186,21 @@ function renderROCChart(classification){
       maintainAspectRatio: false,
       scales: {
         x: {
+          type: 'linear',
           title: { display: true, text: 'Taxa de Falsos Positivos' },
           min: 0,
           max: 1
         },
         y: {
+          type: 'linear',
           title: { display: true, text: 'Taxa de Verdadeiros Positivos' },
           min: 0,
           max: 1
+        }
+      },
+      plugins: {
+        legend: {
+          display: true
         }
       }
     }

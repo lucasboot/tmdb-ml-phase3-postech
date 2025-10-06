@@ -336,10 +336,148 @@ Ajuste o `sleep_per_call` em `collect_popular_pages()` no arquivo `tmdb.py`.
 ### Dashboard vazio
 A primeira coleta demora até 2 minutos. Execute manualmente a task para popular imediatamente.
 
+## Análise de Machine Learning - Filmes de Terror
 
+O sistema implementa três modelos de ML especializados em filmes de terror/horror usando dados do TMDB (2010+):
 
-TO DO:
-- aumentar amostra local
-- mais modelos de ML
-- deploy vercel
-- tempo real?
+### 1. Regressão - Predição de Popularidade
+
+**Objetivo:** Prever a popularidade de filmes de terror baseado em suas características.
+
+**Algoritmo:** Random Forest Regressor
+- `n_estimators=100` - 100 árvores de decisão
+- `max_depth=10` - Profundidade máxima de 10 níveis
+- `random_state=42` - Seed para reprodutibilidade
+
+**Features Utilizadas:**
+
+| Feature | Descrição | Tipo |
+|---------|-----------|------|
+| `runtime` | Duração do filme em minutos | Numérico |
+| `vote_count` | Quantidade total de votos | Numérico |
+| `release_year` | Ano de lançamento (2010+) | Numérico |
+| `release_month` | Mês de lançamento (1-12) | Numérico |
+| `release_decade` | Década de lançamento | Numérico |
+| `is_october` | Lançado em outubro (Halloween) | Binário (0/1) |
+| `is_summer` | Lançado no verão (Jun-Ago) | Binário (0/1) |
+| `is_holiday` | Lançado em Nov-Dez | Binário (0/1) |
+| `genre_count` | Número total de gêneros | Numérico |
+| `genre_thriller` | Também é Thriller | Binário (0/1) |
+| `genre_mystery` | Também é Mystery | Binário (0/1) |
+| `genre_scifi` | Também é Sci-Fi | Binário (0/1) |
+| `genre_fantasy` | Também é Fantasy | Binário (0/1) |
+| `is_english` | Idioma inglês | Binário (0/1) |
+
+**Pré-processamento:**
+- StandardScaler: Normaliza todas as features para média 0 e desvio padrão 1
+- Train/Test Split: 75% treino, 25% teste (random_state=42)
+
+**Métricas:**
+- **MAE (Mean Absolute Error):** Erro médio absoluto das predições
+- **R² Score:** Coeficiente de determinação (0-1, quanto maior melhor)
+
+### 2. Classificação - Avaliação Alta/Baixa
+
+**Objetivo:** Classificar filmes de terror como "alta avaliação" ou "baixa avaliação".
+
+**Critério:** Filmes com `vote_average` acima da mediana = Alta avaliação (1), caso contrário Baixa (0)
+
+**Algoritmo:** Random Forest Classifier
+- Mesmas configurações do regressor
+- Stratified split para balancear classes
+
+**Métricas:**
+- **Confusion Matrix:** Matriz de confusão (TN, FP, FN, TP)
+- **Accuracy:** Acurácia geral do classificador
+- **ROC Curve:** Curva ROC (TPR vs FPR)
+- **AUC Score:** Área sob a curva ROC (0-1)
+
+### 3. Clustering - Agrupamento de Filmes Similares
+
+**Objetivo:** Agrupar filmes de terror com características similares.
+
+**Algoritmo:** K-Means Clustering
+- `n_clusters`: min(4, n_filmes/10), mínimo de 2
+- `n_init=10`: 10 inicializações diferentes
+- PCA com 2 componentes para visualização 2D
+
+**Perfis de Cluster:**
+- Popularidade média
+- Avaliação média
+- Duração média
+- Contagem de votos média
+- Quantidade de filmes no cluster
+
+### Dashboard - Visualizações dos Modelos
+
+O dashboard apresenta **6 gráficos interativos** (Chart.js) atualizados automaticamente:
+
+#### Plot 1: Importância das Features (Regressão)
+- **Tipo:** Gráfico de barras horizontal
+- **Dados:** Top 10 features mais importantes para prever popularidade
+- **Interpretação:** Mostra quais características mais influenciam a popularidade de filmes de terror
+- **Exemplo:** Se `vote_count` tem alta importância, significa que filmes com mais votos tendem a ser mais populares
+
+#### Plot 2: Real vs Previsto (Regressão)
+- **Tipo:** Gráfico de dispersão (scatter plot)
+- **Dados:** Popularidade real (eixo x) vs Popularidade prevista (eixo y)
+- **Diagonal de referência:** Linha tracejada onde real = previsto
+- **Interpretação:** 
+  - Pontos próximos à diagonal = boa predição
+  - Pontos acima da diagonal = modelo superestimou
+  - Pontos abaixo da diagonal = modelo subestimou
+- **Ajuste automático de escala:** Foca na região onde estão 90% dos filmes, ignorando outliers extremos
+
+#### Plot 3: Matriz de Confusão (Classificação)
+- **Tipo:** Gráfico de barras
+- **Dados:** TN, FP, FN, TP da classificação alta/baixa avaliação
+- **Interpretação:**
+  - **TN (True Negative):** Baixa→Baixa (acerto)
+  - **FP (False Positive):** Baixa→Alta (erro tipo I)
+  - **FN (False Negative):** Alta→Baixa (erro tipo II)
+  - **TP (True Positive):** Alta→Alta (acerto)
+- **Cores:** Verde (TN/TP) = acertos, Vermelho/Laranja (FP/FN) = erros
+
+#### Plot 4: Curva ROC (Classificação)
+- **Tipo:** Gráfico de linha
+- **Dados:** Taxa de Verdadeiros Positivos (TPR) vs Taxa de Falsos Positivos (FPR)
+- **Linha diagonal:** Classificador aleatório (baseline)
+- **Área sob a curva (AUC):** Medida de qualidade do classificador
+- **Interpretação:**
+  - AUC = 1.0 → Classificador perfeito
+  - AUC = 0.5 → Classificador aleatório
+  - Quanto mais a curva se afasta da diagonal, melhor
+
+#### Plot 5: Análise de Clusters (PCA 2D)
+- **Tipo:** Gráfico de dispersão colorido por cluster
+- **Dados:** Filmes projetados em 2 dimensões (PCA)
+- **Cores:** Cada cluster tem uma cor diferente
+- **Interpretação:** 
+  - Filmes próximos têm características similares
+  - Clusters bem separados indicam grupos distintos de filmes de terror
+  - Exemplos: "Terror clássico", "Terror slasher", "Terror psicológico", etc.
+
+#### Plot 6: Perfis dos Clusters
+- **Tipo:** Gráfico de barras agrupadas (múltiplos eixos Y)
+- **Dados:** Médias de popularidade, avaliação e duração por cluster
+- **Interpretação:**
+  - Identifica padrões: "Cluster 2 tem filmes curtos e bem avaliados"
+  - Ajuda a caracterizar cada grupo de filmes
+  - Útil para entender audiência e tendências do gênero terror
+
+### Casos de Uso
+
+1. **Produtores:** Identificar features que aumentam popularidade de filmes de terror
+2. **Distribuidores:** Encontrar melhor época para lançar filmes de terror (outubro?)
+3. **Plataformas de streaming:** Recomendar filmes similares (clusters)
+4. **Analistas:** Identificar filmes sub/super-avaliados pelo mercado
+5. **Investidores:** Prever ROI baseado em características do filme
+
+### Atualização dos Modelos
+
+Os modelos são retreinados **a cada 1 hora** automaticamente via Celery Beat:
+```bash
+docker compose exec worker celery -A app.celery_app.celery call app.celery_app.task_train_horror
+```
+
+Isso garante que as predições sempre refletem os dados mais recentes do TMDB.

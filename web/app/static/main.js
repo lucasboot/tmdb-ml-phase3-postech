@@ -76,17 +76,39 @@ function renderRealVsPredictedChart(predictions){
   const actualValues = predictions.map(p => p.actual);
   const predictedValues = predictions.map(p => p.predicted);
   
+  const maxActual = Math.max(...actualValues);
+  const maxPredicted = Math.max(...predictedValues);
+  const maxValue = Math.max(maxActual, maxPredicted);
+  
+  const p90Actual = actualValues.sort((a, b) => a - b)[Math.floor(actualValues.length * 0.9)];
+  const p90Predicted = predictedValues.sort((a, b) => a - b)[Math.floor(predictedValues.length * 0.9)];
+  const p90Max = Math.max(p90Actual, p90Predicted);
+  
+  const axisMax = maxValue > p90Max * 2 ? Math.ceil(p90Max * 1.4) : Math.ceil(maxValue * 1.2);
+  
   if (chartRealVsPredicted) chartRealVsPredicted.destroy();
   chartRealVsPredicted = new Chart(document.getElementById('chartRealVsPredicted'), {
     type: 'scatter',
     data: {
-      datasets: [{
-        label: 'Filmes de Terror',
-        data: predictions.map(p => ({ x: p.actual, y: p.predicted })),
-        backgroundColor: 'rgba(255, 99, 132, 0.6)',
-        borderColor: 'rgba(255, 99, 132, 1)',
-        pointRadius: 5
-      }]
+      datasets: [
+        {
+          label: 'Diagonal de Referência',
+          data: [{ x: 0, y: 0 }, { x: axisMax, y: axisMax }],
+          type: 'line',
+          borderColor: 'rgba(128, 128, 128, 0.5)',
+          borderDash: [5, 5],
+          pointRadius: 0,
+          fill: false,
+          borderWidth: 2
+        },
+        {
+          label: 'Filmes de Terror',
+          data: predictions.map(p => ({ x: p.actual, y: p.predicted })),
+          backgroundColor: 'rgba(255, 99, 132, 0.6)',
+          borderColor: 'rgba(255, 99, 132, 1)',
+          pointRadius: 5
+        }
+      ]
     },
     options: {
       responsive: true,
@@ -94,17 +116,20 @@ function renderRealVsPredictedChart(predictions){
       scales: {
         x: {
           title: { display: true, text: 'Popularidade Real' },
-          beginAtZero: true
+          beginAtZero: true,
+          max: axisMax
         },
         y: {
           title: { display: true, text: 'Popularidade Prevista' },
-          beginAtZero: true
+          beginAtZero: true,
+          max: axisMax
         }
       },
       plugins: {
         tooltip: {
           callbacks: {
             label: function(context) {
+              if (context.dataset.label === 'Diagonal de Referência') return null;
               const p = predictions[context.dataIndex];
               return `${p.title}: (${p.actual.toFixed(1)}, ${p.predicted.toFixed(1)})`;
             }

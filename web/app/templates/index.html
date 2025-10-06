@@ -1,57 +1,75 @@
 {% extends 'base.html' %}
 {% block content %}
-<h1>TMDB Dashboard - Machine Learning</h1>
+<h1>🎬 TMDB Dashboard - Análise de Filmes de Terror com ML</h1>
 <p><small>Polling automático a cada {{ poll_ms/1000|int }}s</small></p>
 
 <section>
-  <h2>Top 10 Filmes Mais Populares</h2>
-  <article>
-    <canvas id="chartTop"></canvas>
-  </article>
-  <table>
-    <thead>
-      <tr><th>Título</th><th>Popularity</th><th>Votes</th><th>Rating</th></tr>
-    </thead>
-    <tbody id="tblTop"></tbody>
-  </table>
-</section>
-
-<section>
-  <h2>Predições de Machine Learning (Regressão Linear)</h2>
-  <p><small>Os modelos preveem popularidade e nota com base nas características dos filmes (gênero, duração, data de lançamento, etc). Compara o valor previsto vs real para identificar padrões.</small></p>
+  <h2>👻 1️⃣ Regressão - Predição de Popularidade de Filmes de Terror</h2>
+  <p><small>Modelagem da popularidade usando RandomForestRegressor com base em características como duração, ano de lançamento, mês e gêneros.</small></p>
+  
   <div class="grid">
     <article>
-      <h3>Popularidade Prevista vs Real</h3>
-      <canvas id="chartPopularity"></canvas>
+      <h3>📊 Plot 1 - Importância das Variáveis (Feature Importance)</h3>
+      <p><small>Mostra quais fatores mais influenciam a popularidade dos filmes de terror.</small></p>
+      <canvas id="chartFeatureImportance"></canvas>
+      <details>
+        <summary>Ver métricas</summary>
+        <table id="tblRegressionMetrics">
+          <tbody></tbody>
+        </table>
+      </details>
     </article>
+    
     <article>
-      <h3>Nota Média Prevista vs Real</h3>
-      <canvas id="chartVoteAverage"></canvas>
+      <h3>📈 Plot 2 - Real vs Previsto</h3>
+      <p><small>Avalia a qualidade da regressão. Pontos próximos à diagonal indicam boa previsão.</small></p>
+      <canvas id="chartRealVsPredicted"></canvas>
     </article>
   </div>
-  <details>
-    <summary>Ver métricas do modelo</summary>
-    <table id="tblMetrics">
-      <tbody></tbody>
-    </table>
-  </details>
 </section>
 
 <section>
-  <h2>Top 10 Predições</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>Título</th>
-        <th>Lançamento</th>
-        <th>Pop. Prevista</th>
-        <th>Pop. Real</th>
-        <th>Nota Prevista</th>
-        <th>Nota Real</th>
-      </tr>
-    </thead>
-    <tbody id="tblPredictions"></tbody>
-  </table>
+  <h2>🎯 2️⃣ Classificação - Prever se um Filme de Terror será Bem Avaliado</h2>
+  <p><small>Prevê se um filme será acima da mediana de avaliação usando RandomForestClassifier.</small></p>
+  
+  <div class="grid">
+    <article>
+      <h3>🔍 Plot 3 - Matriz de Confusão</h3>
+      <p><small>Mostra acertos e erros da predição (Alta/Baixa avaliação).</small></p>
+      <canvas id="chartConfusionMatrix"></canvas>
+    </article>
+    
+    <article>
+      <h3>📉 Plot 4 - Curva ROC</h3>
+      <p><small>Mede a capacidade discriminante do modelo. AUC próximo de 1.0 indica excelente desempenho.</small></p>
+      <canvas id="chartROC"></canvas>
+      <details>
+        <summary>Ver métricas</summary>
+        <table id="tblClassificationMetrics">
+          <tbody></tbody>
+        </table>
+      </details>
+    </article>
+  </div>
 </section>
-{% endblock %}
 
+<section>
+  <h2>🕸️ 3️⃣ Clustering - Descobrir Subtipos de Filmes de Terror</h2>
+  <p><small>Agrupa filmes com características parecidas usando KMeans (ex: gore, psicológico, paranormal).</small></p>
+  
+  <div class="grid">
+    <article>
+      <h3>🗺️ Plot 5 - PCA 2D dos Clusters</h3>
+      <p><small>Visualização em 2D dos grupos de filmes de terror identificados pelo algoritmo.</small></p>
+      <canvas id="chartPCA"></canvas>
+    </article>
+    
+    <article>
+      <h3>📊 Plot 6 - Perfil Médio por Cluster</h3>
+      <p><small>Estatísticas médias de cada grupo (popularidade, avaliação, duração).</small></p>
+      <canvas id="chartClusterProfiles"></canvas>
+    </article>
+  </div>
+</section>
+
+{% endblock %}

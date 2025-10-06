@@ -1,10 +1,13 @@
 import os
 import time
 import requests
+import logging
 from datetime import datetime, timezone
 from flask import current_app
 from .db import db
 from .models import Movie, Snapshot
+
+logger = logging.getLogger(__name__)
 
 BASE = "https://api.themoviedb.org/3"
 
@@ -50,154 +53,268 @@ def upsert_movie(details):
     return m
 
 
-def collect_popular_pages(pages=2, sleep_per_call=0.05):
+def create_snapshot(tmdb_id, details, snapshot_ts):
+    return Snapshot(
+        tmdb_id=tmdb_id,
+        snapshot_ts=snapshot_ts,
+        popularity=details.get("popularity"),
+        vote_count=details.get("vote_count"),
+        vote_average=details.get("vote_average"),
+    )
+
+
+def fetch_and_process_movie(movie_id, snapshot_ts, sleep_time=0.1):
+    details = tmdb_get(f"/movie/{movie_id}", {"append_to_response": "credits"})
+    movie = upsert_movie(details)
+    snapshot = create_snapshot(movie.tmdb_id, details, snapshot_ts)
+    db.session.add(snapshot)
+    
+    if sleep_time > 0:
+        time.sleep(sleep_time)
+    
+    return movie, snapshot
+
+
+def collect_popular_pages(pages=2, sleep_per_call=0.1):
     snapshot_ts = datetime.now(timezone.utc)
     created = 0
+    
     for page in range(1, pages + 1):
         data = tmdb_get("/movie/popular", {"page": page})
         for item in data.get("results", []):
-            details = tmdb_get(f"/movie/{item['id']}", {"append_to_response": "credits"})
-            m = upsert_movie(details)
-            s = Snapshot(
-                tmdb_id=m.tmdb_id,
-                snapshot_ts=snapshot_ts,
-                popularity=details.get("popularity"),
-                vote_count=details.get("vote_count"),
-                vote_average=details.get("vote_average"),
-            )
-            db.session.add(s)
+            fetch_and_process_movie(item['id'], snapshot_ts, sleep_per_call)
             created += 1
-            time.sleep(sleep_per_call)
+    
     db.session.commit()
+    logger.info(f"Collected {created} popular movies")
     return {"snapshots": created, "ts": snapshot_ts.isoformat()}
 
 
-def collect_movies_by_year_range(start_year=2025, end_year=None, max_pages_per_year=20, sleep_per_call=0.3):
+def _discover_movies_for_year(year, min_votes, max_pages, snapshot_ts, sleep_per_call):
+    movies_count = 0
+    page = 1
+    
+    while page <= max_pages:
+        try:
+            data = tmdb_get("/discover/movie", {
+                "primary_release_year": year,
+                "page": page,
+                "sort_by": "popularity.desc",
+                "vote_count.gte": min_votes
+            })
+            
+            results = data.get("results", [])
+            if not results:
+                break
+            
+            for item in results:
+                try:
+                    fetch_and_process_movie(item['id'], snapshot_ts, sleep_per_call)
+                    movies_count += 1
+                except Exception as e:
+                    logger.warning(f"Failed to process movie {item.get('id')}: {e}")
+                    continue
+            
+            db.session.commit()
+            
+            if page >= data.get("total_pages", 0):
+                break
+            
+            page += 1
+            
+        except Exception as e:
+            logger.error(f"Failed to fetch page {page} for year {year}: {e}")
+            break
+    
+    return movies_count
+
+
+def initial_ingest_movies(start_year=2010, end_year=None, min_votes=50, max_pages_per_year=50, sleep_per_call=0.1):
     if end_year is None:
         end_year = datetime.now().year
     
     start_time = time.time()
     snapshot_ts = datetime.now(timezone.utc)
     total_movies = 0
-    total_snapshots = 0
-    years_processed = 0
-    total_years = end_year - start_year + 1
     
-    print("=" * 80)
-    print(f"🎬 INICIANDO COLETA DE FILMES DE TERROR/HORROR")
-    print("=" * 80)
-    print(f"Período: {start_year} - {end_year} ({total_years} anos)")
-    print(f"Páginas por ano: {max_pages_per_year} (~{max_pages_per_year * 20} filmes/ano)")
-    print(f"Delay entre requisições: {sleep_per_call}s")
-    print(f"Timestamp: {snapshot_ts.isoformat()}")
-    print("=" * 80)
-    print()
+    logger.info(f"Starting initial ingest: {start_year}-{end_year}, min_votes={min_votes}")
     
     for year in range(start_year, end_year + 1):
-        year_start_time = time.time()
-        years_processed += 1
-        year_movies = 0
-        
-        progress_pct = ((years_processed - 1) / total_years) * 100
-        print(f"📅 ANO {year} - Progresso geral: {progress_pct:.1f}% ({years_processed}/{total_years} anos)")
-        print("-" * 80)
-        
-        for page in range(1, max_pages_per_year + 1):
-            try:
-                print(f"  📄 Página {page}/{max_pages_per_year}...", end=" ", flush=True)
-                
-                data = tmdb_get("/discover/movie", {
-                    "primary_release_year": year,
-                    "with_genres": 27,
-                    "page": page,
-                    "sort_by": "popularity.desc",
-                    "vote_count.gte": 10
-                })
-                
-                results = data.get("results", [])
-                total_pages = data.get("total_pages", 0)
-                
-                if not results:
-                    print("sem resultados")
-                    break
-                
-                print(f"{len(results)} filmes encontrados")
-                
-                for idx, item in enumerate(results, 1):
-                    try:
-                        movie_id = item.get('id')
-                        movie_title = item.get('title', 'Sem título')
-                        
-                        details = tmdb_get(f"/movie/{movie_id}", {"append_to_response": "credits"})
-                        m = upsert_movie(details)
-                        
-                        s = Snapshot(
-                            tmdb_id=m.tmdb_id,
-                            snapshot_ts=snapshot_ts,
-                            popularity=details.get("popularity"),
-                            vote_count=details.get("vote_count"),
-                            vote_average=details.get("vote_average"),
-                        )
-                        db.session.add(s)
-                        year_movies += 1
-                        total_snapshots += 1
-                        
-                        print(f"    ✅ [{idx:2d}/20] {movie_title[:50]} (ID: {movie_id})")
-                        
-                        time.sleep(sleep_per_call)
-                    except Exception as e:
-                        print(f"    ❌ Erro ao processar filme {item.get('id')}: {e}")
-                        continue
-                
-                db.session.commit()
-                print(f"    💾 Página {page} salva no banco ({year_movies} filmes até agora em {year})")
-                
-                if page >= total_pages:
-                    print(f"  ℹ️  Última página disponível alcançada ({total_pages} páginas totais)")
-                    break
-                    
-            except Exception as e:
-                print(f"\n  ❌ Erro ao coletar página {page} do ano {year}: {e}")
-                break
-        
-        year_duration = time.time() - year_start_time
+        year_movies = _discover_movies_for_year(year, min_votes, max_pages_per_year, snapshot_ts, sleep_per_call)
         total_movies += year_movies
-        
-        print()
-        print(f"✅ ANO {year} CONCLUÍDO: {year_movies} filmes coletados em {year_duration:.1f}s")
-        
-        elapsed_time = time.time() - start_time
-        avg_time_per_year = elapsed_time / years_processed
-        remaining_years = total_years - years_processed
-        estimated_remaining = avg_time_per_year * remaining_years
-        
-        print(f"📊 Total acumulado: {total_movies} filmes")
-        print(f"⏱️  Tempo decorrido: {elapsed_time/60:.1f} min | Estimado restante: {estimated_remaining/60:.1f} min")
-        print("=" * 80)
-        print()
+        logger.info(f"Year {year}: {year_movies} movies collected (total: {total_movies})")
     
-    total_duration = time.time() - start_time
-    
-    print()
-    print("=" * 80)
-    print("🎉 COLETA FINALIZADA COM SUCESSO!")
-    print("=" * 80)
-    print(f"Total de filmes coletados: {total_movies}")
-    print(f"Total de snapshots criados: {total_snapshots}")
-    print(f"Anos processados: {years_processed} ({start_year}-{end_year})")
-    print(f"Tempo total: {total_duration/60:.1f} minutos ({total_duration/3600:.2f} horas)")
-    print(f"Média: {total_movies/years_processed:.1f} filmes/ano | {total_duration/total_movies:.2f}s/filme")
-    print(f"Timestamp: {snapshot_ts.isoformat()}")
-    print("=" * 80)
+    duration = time.time() - start_time
+    logger.info(f"Initial ingest completed: {total_movies} movies in {duration/60:.1f}m")
     
     return {
         "total_movies": total_movies,
-        "total_snapshots": total_snapshots,
-        "years_processed": years_processed,
+        "total_snapshots": total_movies,
+        "years_processed": end_year - start_year + 1,
+        "start_year": start_year,
+        "end_year": end_year,
+        "min_votes": min_votes,
+        "duration_minutes": round(duration / 60, 2),
+        "ts": snapshot_ts.isoformat()
+    }
+
+
+def _discover_movies_for_year_with_genre(year, genre_id, min_votes, max_pages, snapshot_ts, sleep_per_call):
+    movies_count = 0
+    page = 1
+    
+    while page <= max_pages:
+        try:
+            data = tmdb_get("/discover/movie", {
+                "primary_release_year": year,
+                "with_genres": genre_id,
+                "page": page,
+                "sort_by": "popularity.desc",
+                "vote_count.gte": min_votes
+            })
+            
+            results = data.get("results", [])
+            if not results:
+                break
+            
+            for item in results:
+                try:
+                    fetch_and_process_movie(item['id'], snapshot_ts, sleep_per_call)
+                    movies_count += 1
+                except Exception as e:
+                    logger.warning(f"Failed to process movie {item.get('id')}: {e}")
+                    continue
+            
+            db.session.commit()
+            
+            if page >= data.get("total_pages", 0):
+                break
+            
+            page += 1
+            
+        except Exception as e:
+            logger.error(f"Failed to fetch page {page} for year {year}: {e}")
+            break
+    
+    return movies_count
+
+
+def collect_movies_by_year_range(start_year=2025, end_year=None, max_pages_per_year=20, sleep_per_call=0.1):
+    if end_year is None:
+        end_year = datetime.now().year
+    
+    start_time = time.time()
+    snapshot_ts = datetime.now(timezone.utc)
+    total_movies = 0
+    
+    logger.info(f"Collecting horror movies: {start_year}-{end_year}")
+    
+    for year in range(start_year, end_year + 1):
+        year_movies = _discover_movies_for_year_with_genre(year, 27, 10, max_pages_per_year, snapshot_ts, sleep_per_call)
+        total_movies += year_movies
+        logger.info(f"Year {year}: {year_movies} horror movies (total: {total_movies})")
+    
+    duration = time.time() - start_time
+    logger.info(f"Collection completed: {total_movies} movies in {duration/60:.1f}m")
+    
+    return {
+        "total_movies": total_movies,
+        "total_snapshots": total_movies,
+        "years_processed": end_year - start_year + 1,
         "start_year": start_year,
         "end_year": end_year,
         "genre": "Horror",
-        "duration_minutes": round(total_duration / 60, 2),
+        "duration_minutes": round(duration / 60, 2),
+        "ts": snapshot_ts.isoformat()
+    }
+
+
+def _update_recent_years(years, existing_ids, min_votes, max_pages, snapshot_ts, sleep_per_call):
+    new_count = 0
+    updated_count = 0
+    
+    for year in years:
+        page = 1
+        while page <= max_pages:
+            try:
+                data = tmdb_get("/discover/movie", {
+                    "primary_release_year": year,
+                    "page": page,
+                    "sort_by": "popularity.desc",
+                    "vote_count.gte": min_votes
+                })
+                
+                results = data.get("results", [])
+                if not results:
+                    break
+                
+                for item in results:
+                    try:
+                        movie_id = item.get('id')
+                        is_new = movie_id not in existing_ids
+                        
+                        fetch_and_process_movie(movie_id, snapshot_ts, sleep_per_call)
+                        
+                        if is_new:
+                            new_count += 1
+                            existing_ids.add(movie_id)
+                        else:
+                            updated_count += 1
+                            
+                    except Exception as e:
+                        logger.warning(f"Failed to process movie {item.get('id')}: {e}")
+                        continue
+                
+                db.session.commit()
+                page += 1
+                
+            except Exception as e:
+                logger.error(f"Failed to fetch page {page} for year {year}: {e}")
+                break
+    
+    return new_count, updated_count
+
+
+def _update_oldest_movies(limit, snapshot_ts, sleep_per_call):
+    movies = db.session.query(Movie).order_by(Movie.updated_at.asc()).limit(limit).all()
+    updated = 0
+    
+    for movie in movies:
+        try:
+            fetch_and_process_movie(movie.tmdb_id, snapshot_ts, sleep_per_call)
+            updated += 1
+        except Exception as e:
+            logger.warning(f"Failed to update movie {movie.tmdb_id}: {e}")
+            continue
+    
+    db.session.commit()
+    return updated
+
+
+def update_movies_incremental(min_votes=50, max_pages=5, sleep_per_call=0.1):
+    start_time = time.time()
+    snapshot_ts = datetime.now(timezone.utc)
+    current_year = datetime.now().year
+    
+    existing_ids = {movie[0] for movie in db.session.query(Movie.tmdb_id).all()}
+    logger.info(f"Incremental update started. DB has {len(existing_ids)} movies")
+    
+    years_to_check = [current_year, current_year - 1]
+    new_movies, updated_recent = _update_recent_years(
+        years_to_check, existing_ids, min_votes, max_pages, snapshot_ts, sleep_per_call
+    )
+    
+    updated_old = _update_oldest_movies(20, snapshot_ts, sleep_per_call)
+    total_updated = updated_recent + updated_old
+    
+    duration = time.time() - start_time
+    logger.info(f"Update completed: {new_movies} new, {total_updated} updated in {duration:.1f}s")
+    
+    return {
+        "new_movies": new_movies,
+        "updated_movies": total_updated,
+        "total_snapshots": new_movies + total_updated,
+        "duration_seconds": round(duration, 2),
         "ts": snapshot_ts.isoformat()
     }
 

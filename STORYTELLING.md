@@ -79,7 +79,7 @@ sequenceDiagram
     participant TMDB as TMDB API
     participant DB as MySQL
     
-    Note over Beat: A cada 500 minutos
+    Note over Beat: A cada 5 minutos
     Beat->>Redis: agenda task_update_movies
     Redis->>Worker: envia task
     
@@ -98,7 +98,7 @@ sequenceDiagram
 ```
 
 **Detalhes da Coleta:**
-- **Frequência:** A cada 500 minutos (~8h20min)
+- **Frequência:** A cada 5 minutos
 - **Período:** 2010 até ano atual
 - **Filtro:** Horror (Genre ID 27) + mínimo 50 votos
 - **Volume:** ~20 páginas por ano = ~5.000 filmes
@@ -116,7 +116,7 @@ sequenceDiagram
     participant DB as MySQL
     participant ML as Pipeline ML
     
-    Note over Beat: A cada 600 minutos
+    Note over Beat: A cada 1 hora
     Beat->>Redis: agenda task_train
     Redis->>Worker: envia task
     
@@ -147,7 +147,7 @@ sequenceDiagram
 ```
 
 **Detalhes do Treinamento:**
-- **Frequência:** A cada 600 minutos (~10h)
+- **Frequência:** A cada 1 hora
 - **Algoritmos:** Random Forest (Regressão + Classificação) + K-Means
 - **Features:** 14 variáveis (runtime, vote_count, release_month, genres, etc.)
 - **Métricas:** MAE, R², Accuracy, AUC, Confusion Matrix
@@ -259,8 +259,8 @@ graph TB
     B --> D[task_update_movies<br/>coleta incremental]
     B --> E[task_train<br/>treina modelos]
     
-    C --> F[Cron: 500min]
-    C --> G[Cron: 600min]
+    C --> F[Cron: 5min]
+    C --> G[Cron: 60min]
     
     F -.-> D
     G -.-> E
@@ -471,8 +471,8 @@ graph TB
     Poll --> Render[Chart.js renderiza<br/>6 gráficos]
     
     Render -.30s.-> Poll
-    Store -.500min.-> Beat1
-    Save -.600min.-> Beat2
+    Store -.5min.-> Beat1
+    Save -.60min.-> Beat2
     
     style Start fill:#4CAF50
     style Render fill:#4CAF50
@@ -736,4 +736,6 @@ mindmap
 - DevOps
 - Software Architecture
 - Python Ecosystem
+
+
 

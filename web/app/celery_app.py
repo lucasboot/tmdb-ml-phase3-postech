@@ -5,7 +5,7 @@ from .config import Config
 from .db import db
 from .models import ModelPrediction
 from .tmdb import initial_ingest_movies, update_movies_incremental, collect_movies_by_year_range
-from .ml import train_and_store
+from .ml import train_all_horror_models
 from flask import Flask
 
 redis_url = os.getenv("REDIS_URL")
@@ -18,16 +18,16 @@ celery.conf.update(
     imports=('app.celery_app',),
 )
 
-# celery.conf.beat_schedule = {
-#     "update-movies-every-5-minutes": {
-#         "task": "app.celery_app.task_update_movies",
-#         "schedule": 5.0 * 60.0,
-#     },
-#     "train-model-every-hour": {
-#         "task": "app.celery_app.task_train",
-#         "schedule": 60.0 * 60.0,
-#     },
-# }
+celery.conf.beat_schedule = {
+    "update-movies-every-5-minutes": {
+        "task": "app.celery_app.task_update_movies",
+        "schedule": 5.0 * 60.0,
+    },
+    "train-model-every-hour": {
+        "task": "app.celery_app.task_train",
+        "schedule": 60.0 * 60.0,
+    },
+}
 
 
 def make_flask_app():
@@ -71,6 +71,6 @@ def task_ingest():
 def task_train():
     app = make_flask_app()
     with app.app_context():
-        res = train_and_store()
+        res = train_all_horror_models()
         return res
 

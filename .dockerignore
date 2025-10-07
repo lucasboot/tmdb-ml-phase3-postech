@@ -12,11 +12,18 @@ build
 .gitignore
 .env
 .env.local
-README.md
+.env.*
+env.sample
+env.local.sample
+*.md
 .vscode
 .idea
 *.swp
 *.swo
 *~
 mysql_data
+postgres_data
+redis_data
+docker-compose*.yml
+run-local.sh
 
